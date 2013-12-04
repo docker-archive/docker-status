@@ -1,0 +1,4 @@
+cron:
+- description: Check Docker services
+  url: /check
+  schedule: every 5 minutes

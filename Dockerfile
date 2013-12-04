@@ -1,68 +1,61 @@
-# VERSION:        0.1.5
+# VERSION:        0.1.7
 # AUTHOR:         Daniel Mizyrycki <daniel@docker.com>
-# DESCRIPTION:    Build docker-status container
-# URLS:           stashboard page:       http://127.0.0.1
-#                 stashboard admin page: http://127.0.0.1/admin
+# DESCRIPTION:    Deploy docker-status container on GoogleAppEngine
+# URLS:           stashboard page:       http://docker-status.appspot.com
+# COMMENTS:
+#     CONFIG_JSON is an environment variable json string loaded as:
+#
+#     export CONFIG_JSON='
+#         { "GOOGLE_EMAIL":       "Google_account_email",
+#           "GOOGLE_PASSWORD":    "Google_password",
+#           "CONSUMER_KEY":       "Oauth_consumer_key",
+#           "CONSUMER_SECRET":    "Oauth_consumer_secret",
+#           "OAUTH_KEY":          "Oauth_key_for_GAE",
+#           "OAUTH_SECRET":       "Oauth_secret_for_GAE" }'
 #
 # TO_BUILD:   docker build -t docker-status -rm .
-# USAGE:
-#   # Download docker-status and data Dockerfiles
-#   wget https://raw.github.com/dotcloud/docker/docker-status/hack/infrastructure/docker-status/Dockerfile
-#   wget http://raw.github.com/dotcloud/docker/master/contrib/desktop-integration/data/Dockerfile
-#
-#   # Local ephemeral run  (data not saved after server container exits)
-#   docker run -p 127.0.0.1:80:8080 -p 127.0.0.1:8000:8000 docker-status
-#
-#   # remote access ephemeral run (server container process remote queries)
-#   docker run -p 80:8080 -p 8000:8000 docker-status
-#
-#   # stateful remote access (data is kept on a data container)
-#   docker run -name docker-status-data data true   # Create data container
-#   docker run -volumes-from docker-status-data -p 80:8080 -p 8000:8000 docker-status
+# TO_DEPLOY:  docker run -e CONFIG_JSON="${CONFIG_JSON}" docker-status
+# LOCAL_USAGE:
+#   docker run  -p 8080:8080 -p 8000:8000 -i -t docker-status bash
+#   /application/google_appengine/dev_appserver.py --skip_sdk_update_check \
+#     --host 0.0.0.0 --port 8080 --admin_host 0.0.0.0 \
+#     /application/stashboard/app.yaml
 
-DOCKER-VERSION 0.6.6
+DOCKER-VERSION 0.7
 
 # Base docker image
 FROM ubuntu:12.04
 MAINTAINER Daniel Mizyrycki <daniel@docker.com>
 
+ENV APP_PATH /application/stashboard
+ENV PYTHONPATH $APP_PATH
+
 RUN echo 'deb http://archive.ubuntu.com/ubuntu precise main universe' > \
   /etc/apt/sources.list
 RUN apt-get update -q
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y less wget bzip2 unzip \
-  python-pip ca-certificates cron supervisor
-RUN pip install --install-option="--install-lib=/usr/lib/python2.7" requests pyyaml
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y less vim wget bzip2 \
+  unzip python-pip ca-certificates
+RUN pip install --install-option="--install-lib=/usr/lib/python2.7" requests \
+  oauth2 pyyaml pexpect
 
 # Install stashboard and its dependencies
 RUN mkdir /application; cd /application; \
-  wget -q http://googleappengine.googlecode.com/files/google_appengine_1.8.7.zip; \
-  unzip -q /application/google_appengine_1.8.7.zip; rm google_appengine_1.8.7.zip
+  wget -q http://googleappengine.googlecode.com/files/google_appengine_1.8.8.zip; \
+  unzip -q /application/google_appengine_1.8.8.zip; rm google_appengine_1.8.8.zip
 RUN cd /application; wget -q -O - http://github.com/twilio/stashboard/tarball/master | \
-    tar -zx --transform 's/[^\/]*/stashboard/'
+  tar -zx --transform 's/[^\/]*/stashboard/'
 
-# Add check worker
-ADD check.py /application/stashboard/stashboard/check.py
+RUN mv $APP_PATH $APP_PATH~
+RUN cd /application; mv stashboard~/stashboard .;rm -rf stashboard~
 
-# Create sysadmin account for /data directory
-RUN useradd -m -d /data sysadmin
+# Add stashboard customization and deployment
 
-# Setup check worker service
-RUN echo '*/5 * * * * python /application/stashboard/stashboard/check.py' > \
-  /var/spool/cron/crontabs/root; chmod 600 /var/spool/cron/crontabs/root
-RUN /bin/echo -e "\
-[program:cron]\n\
-command=/usr/sbin/cron -f\n" >  /etc/supervisor/conf.d/cron.conf
+ADD app.yaml $APP_PATH/app.yaml
+ADD cron.yaml $APP_PATH/cron.yaml
+ADD check.py $APP_PATH/check.py
+ADD toolkit.py $APP_PATH/toolkit.py
+ADD deploy.py /usr/bin/deploy.py
+RUN chmod 755 $APP_PATH/check.py
+RUN chmod 755 /usr/bin/deploy.py
 
-# Setup docker-status web service
-# Add docker-status check endpoint
-RUN sed -Ei 's/- url: \.\*/- url: \/check\n  script: check.py\n\
-  secure: optional\n\n- url: \.\*/' /application/stashboard/stashboard/app.yaml
-RUN /bin/echo -e "\
-[program:status]\n\
-command=/application/google_appengine/dev_appserver.py --skip_sdk_update_check\
- --host 0.0.0.0 --port 8080 --admin_host 0.0.0.0 --datastore_path=/data/docker-status.db\
- /application/stashboard/stashboard/app.yaml\n\
-directory=/data\n\
-user=sysadmin\n" >  /etc/supervisor/conf.d/status.conf
-
-CMD ["/usr/bin/supervisord", "-n"]
+CMD ["/usr/bin/deploy.py"]
