@@ -27,48 +27,53 @@ client = oauth.Client(consumer, token=token)
 # Dynamically find docker-status services
 # services = http://localhost:8080/admin/api/v1/services
 
-services = [
-    {'name': 'index', 'url': 'https://index.docker.io/v1/_status'},
-    {'name': 'registry',
-        'url': 'http://docker-status.dotcloud.com:5000/_status'}]
+services = {
+    'index': 'https://index.docker.io/v1/_status',
+    'registry': 'http://docker-status.dotcloud.com:5000/_status'}
 
 
 def call_api(service, data):
-    '''Submit service status to  API'''
+    '''Submit service status to API'''
     api_url = '{}/services/{}/events'.format(base_url, service)
-    print json.dumps(data)
+    print json.dumps(data, sort_keys=True, skipkeys=True)
     client.request(api_url, "POST", body=urllib.urlencode(data))
 
 
-def warning_status(status_dict, msg=''):
-    d = json.loads(status_dict)
-    for key in d:
-        status = d[key].get('status', None)
-        if status not in ('ok', None):
-            msg += '{}: {}. '.format(key, d[key]['message'])
-    return {'status': 'warning', 'message': msg}
+def normalize_status(service, data):
+    retval = data
+    if service == 'index':
+        retval = {'services': [], 'failures': {}}
+        for key in data:
+            if key == 'host':
+                continue
+            retval['services'].append(key)
+            status = data[key].get('status', None)
+            if status != 'ok':
+                retval['failures'].update({key: data[key].get(
+                    'message', 'unspecified')})
+    retval['services'].sort()
+    return retval
 
 
 def check(service, url):
-    print 'Checking ' + service + ' (' + url + ')'
-    data = {'status': 'down',
-        'message': 'The server could not be reached.'}
+    data = {'status': 'up', 'message': 'docker {} services are running'.format(
+        service)}
     try:
-        r = urllib2.urlopen(url, timeout=30)
+        r = urllib2.urlopen(url, timeout=15)
         if r.getcode() >= 300:
-            data = warning_status(r.read())
-        else:
-            data = {'status': 'up', 'message':
-                'Docker {} services are responding.'.format(service)}
+            data = {'status': 'warning', 'message': json.loads(r.read())}
     except Exception as e:
-        if e.getcode() == 500:
-            data = warning_status(e.read())
+        if e.getcode() == 503:
+            data = {'status': 'warning', 'message': json.loads(e.read())}
+        else:
+            data = {'status': 'down',
+                'message': 'The server could not be reached.'}
     call_api(service, data)
 
 
 def main():
     for service in services:
-        check(service['name'], service['url'])
+        check(service, services[service])
 
 
 if __name__ == '__main__':
