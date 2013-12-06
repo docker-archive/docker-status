@@ -49,13 +49,7 @@ RUN mv $APP_PATH $APP_PATH~
 RUN cd /application; mv stashboard~/stashboard .;rm -rf stashboard~
 
 # Add stashboard customization and deployment
-
-ADD app.yaml $APP_PATH/app.yaml
-ADD cron.yaml $APP_PATH/cron.yaml
-ADD check.py $APP_PATH/check.py
-ADD toolkit.py $APP_PATH/toolkit.py
-ADD deploy.py /usr/bin/deploy.py
-RUN chmod 755 $APP_PATH/check.py
-RUN chmod 755 /usr/bin/deploy.py
+ADD docker_status $APP_PATH
+RUN mv $APP_PATH/deploy.py /usr/bin
 
 CMD ["/usr/bin/deploy.py"]

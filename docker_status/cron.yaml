@@ -1,0 +1,8 @@
+cron:
+- description: Check Docker services
+  url: /check
+  schedule: every 5 minutes
+
+- description: daily task to clean the frontpage
+  url: /admin/tasks/invalidate-cache
+  schedule: every day 00:01

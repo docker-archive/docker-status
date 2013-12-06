@@ -10,7 +10,6 @@ import json
 import re
 import sys
 import time
-import toolkit
 
 CONFIG = json.loads(env['CONFIG_JSON'])
 
@@ -45,13 +44,13 @@ def setup_check():
     # Oauth credentials need to be properly escaped
     env['OAUTH_KEY'] = re.sub('/', '\\/', env['OAUTH_KEY'])
     env['OAUTH_SECRET'] = re.sub('/', '\\/', env['OAUTH_SECRET'])
-    call('sed -Ei "s/^(consumer_key = ).+/\\1\'{}\'/" {}'.format(
+    call('sed -Ei "s/^(.*consumer_key = ).+/\\1\'{}\'/" {}'.format(
         env['CONSUMER_KEY'], check_path), shell=True)
-    call('sed -Ei "s/^(consumer_secret = ).+/\\1\'{}\'/" {}'.format(
+    call('sed -Ei "s/^(.*consumer_secret = ).+/\\1\'{}\'/" {}'.format(
         env['CONSUMER_SECRET'], check_path), shell=True)
-    call('sed -Ei "s/^(oauth_key = ).+/\\1\'{}\'/" {}'.format(
+    call('sed -Ei "s/^(.*oauth_key = ).+/\\1\'{}\'/" {}'.format(
         env['OAUTH_KEY'], check_path), shell=True)
-    call('sed -Ei "s/^(oauth_secret = ).+/\\1\'{}\'/" {}'.format(
+    call('sed -Ei "s/^(.*oauth_secret = ).+/\\1\'{}\'/" {}'.format(
         env['OAUTH_SECRET'], check_path), shell=True)
 
 
@@ -72,11 +71,10 @@ def main():
     '''Deploy docker-status into GoogleAppEngine'''
 
     # Deploy application
-    if toolkit.deployment() == 'production':
-        setup_check()
-        gae_api('update {}'.format(env['APP_PATH']))
-        gae_api('set_default_version {}'.format(env['APP_PATH']), timeout=15)
-        time.sleep(15)     # Let new version become available
+    setup_check()
+    gae_api('update {}'.format(env['APP_PATH']))
+    gae_api('set_default_version {}'.format(env['APP_PATH']), timeout=15)
+    time.sleep(15)     # Let new version become available
 
 
 if __name__ == '__main__':

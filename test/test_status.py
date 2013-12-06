@@ -1,4 +1,4 @@
-import check
+from docker_status import check
 import json
 import unittest
 
