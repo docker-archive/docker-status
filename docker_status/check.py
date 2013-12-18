@@ -12,8 +12,10 @@ else:
     from gae.devtool import call_api
 
 services = {
-    'index': 'https://index.docker.io/v1/_status',
-    'registry': 'http://docker-status.dotcloud.com:5000/_status'}
+    'index': 'http://index.docker.io/v1/_status',
+    'registry': 'http://registrystaging-docker.dotcloud.com/v1/_status',
+    'docker-io': 'http://dockeriostaging-docker.dotcloud.com/api/v1/_status',
+    }
 
 
 def query_service(service, url):

@@ -1,4 +1,9 @@
-oauth2==1.5.211
+# Main requirements
 pexpect==3.0
 PyYAML==3.10
 requests==2.0.1
+oauth2==1.5.211
+
+# Testing
+tox==1.6.1
+flake8==2.1.0

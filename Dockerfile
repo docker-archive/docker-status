@@ -1,6 +1,5 @@
-# VERSION:        0.1.7
-# AUTHOR:         Daniel Mizyrycki <daniel@docker.com>
 # DESCRIPTION:    Deploy docker-status container on GoogleAppEngine
+# AUTHOR:         Daniel Mizyrycki <daniel@docker.com>
 # URLS:           stashboard page:       http://docker-status.appspot.com
 # COMMENTS:
 #     CONFIG_JSON is an environment variable json string loaded as:
